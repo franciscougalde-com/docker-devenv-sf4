@@ -1,0 +1,55 @@
+version: '3'
+
+services:
+    app:
+        container_name: sf4_app
+        build:
+            context: ./docker/app
+            args:
+                - timezone=${TZ}
+        depends_on:
+            - mysql
+        volumes:
+            - ./symfony42:/var/www/html:rw,cached
+        env_file:
+            - .env
+        environment:
+            XDEBUG_CONFIG: remote_host=${XDEBUG_REMOTE_HOST}
+            PHP_IDE_CONFIG: serverName=${NGINX_HOST}
+
+    nginx:
+        container_name: sf4_nginx
+        build:
+            context: ./docker/nginx
+            args:
+                - nginx_host=${NGINX_HOST}
+        ports:
+            - "8008:80"
+            - "443:443"
+        depends_on:
+            - app
+        volumes:
+            - ./symfony42/public:/var/www/html/public:ro
+            - ./docker/nginx/default.template:/etc/nginx/conf.d/default.template
+            - nginx_log:/var/log/nginx
+        env_file:
+            - .env
+        command: /bin/bash -c "envsubst '$$NGINX_HOST'
+            < /etc/nginx/conf.d/default.template
+            > /etc/nginx/conf.d/default.conf
+            && exec nginx -g 'daemon off;'"
+
+    mysql:
+        container_name: sf4_mysql
+        build:
+            context: ./docker/mysql
+        volumes:
+            - ./.data/mysql:/var/lib/mysql:rw
+        env_file:
+            - .env
+        ports:
+            - "3306:3306"
+
+volumes:
+    nginx_log:
+
